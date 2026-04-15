@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Console v2.4</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            background: #050505;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        #root {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Courier New', Courier, monospace;
+            width: 100%;
+            max-width: 960px;
+            min-height: 680px;
+            display: flex;
+            flex-direction: column;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #1a1a1a;
+            position: relative;
+        }
+
+        .scanline {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 100, 0.012) 2px, rgba(0, 255, 100, 0.012) 4px);
+            border-radius: 12px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 200px 1fr 200px;
+            flex: 1;
+            z-index: 1;
+            position: relative;
+        }
+
+        /* LEFT PANEL */
+        .panel-left {
+            background: #0d0d0d;
+            border-right: 1px solid #1c1c1c;
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .panel-label {
+            font-size: 9px;
+            letter-spacing: 0.18em;
+            color: #444;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            padding-left: 2px;
+        }
+
+        .brain-btn {
+            background: transparent;
+            border: 1px solid #222;
+            color: #888;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brain-btn:hover {
+            background: #141414;
+            color: #ccc;
+            border-color: #333;
+        }
+
+        .brain-btn.active.green {
+            border-color: #00ff6644;
+            color: #00ff88;
+            background: #00ff6606;
+        }
+
+        .brain-btn.active.blue {
+            border-color: #0088ff44;
+            color: #44aaff;
+            background: #0088ff06;
+        }
+
+        .brain-btn.active.red {
+            border-color: #ff333344;
+            color: #ff5555;
+            background: #ff333306;
+        }
+
+        .brain-btn.active.amber {
+            border-color: #ffaa0044;
+            color: #ffcc44;
+            background: #ffaa0006;
+        }
+
+        .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #333;
+            flex-shrink: 0;
+        }
+
+        .brain-btn.active.green .dot {
+            background: #00ff88;
+            box-shadow: 0 0 5px #00ff88;
+        }
+
+        .brain-btn.active.blue .dot {
+            background: #44aaff;
+            box-shadow: 0 0 5px #44aaff;
+        }
+
+        .brain-btn.active.red .dot {
+            background: #ff5555;
+            box-shadow: 0 0 5px #ff5555;
+        }
+
+        .brain-btn.active.amber .dot {
+            background: #ffcc44;
+            box-shadow: 0 0 5px #ffcc44;
+        }
+
+        .divider-h {
+            border: none;
+            border-top: 1px solid #1a1a1a;
+            margin: 10px 0;
+        }
+
+        /* CENTER */
+        .center {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid #181818;
+            background: #0a0a0a;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .topbar-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-badge {
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            color: #444;
+            border: 1px solid #1e1e1e;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .status-badge.live {
+            color: #00ff88;
+            border-color: #00ff8833;
+        }
+
+        .log-area {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-height: 340px;
+            max-height: 420px;
+        }
+
+        .log-line {
+            font-size: 12px;
+            line-height: 1.6;
+            padding: 2px 0;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(3px);
+            }
+
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        .log-line.sys {
+            color: #333;
+        }
+
+        .log-line.info {
+            color: #00ff88;
+        }
+
+        .log-line.cmd {
+            color: #44aaff;
+        }
+
+        .log-line.warn {
+            color: #ffcc44;
+        }
+
+        .log-line.err {
+            color: #ff5555;
+        }
+
+        .log-line.out {
+            color: #aaa;
+            padding-left: 16px;
+        }
+
+        .prompt-area {
+            border-top: 1px solid #181818;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #0a0a0a;
+        }
+
+        .prompt-caret {
+            color: #00ff88;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .prompt-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #e0e0e0;
+            caret-color: #00ff88;
+        }
+
+        .prompt-input::placeholder {
+            color: #333;
+        }
+
+        .suggestions {
+            padding: 8px 16px 12px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            border-top: 1px solid #111;
+            background: #0a0a0a;
+        }
+
+        .sug-chip {
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            color: #555;
+            border: 1px solid #1e1e1e;
+            padding: 3px 9px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.15s;
+            letter-spacing: 0.04em;
+        }
+
+        .sug-chip:hover {
+            color: #00ff88;
+            border-color: #00ff8833;
+            background: #00ff6608;
+        }
+
+        /* RIGHT PANEL */
+        .panel-right {
+            background: #0d0d0d;
+            border-left: 1px solid #1c1c1c;
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .stat-block {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .stat-label {
+            font-size: 9px;
+            letter-spacing: 0.16em;
+            color: #333;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 11px;
+            color: #888;
+            word-break: break-all;
+        }
+
+        .stat-value.highlight {
+            color: #44aaff;
+        }
+
+        .confidence-bar-wrap {
+            margin-top: 4px;
+        }
+
+        .confidence-bar-bg {
+            background: #161616;
+            border-radius: 3px;
+            height: 4px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .confidence-bar-fill {
+            height: 4px;
+            border-radius: 3px;
+            background: #00ff88;
+            transition: width 0.6s ease;
+        }
+
+        .conf-label {
+            font-size: 10px;
+            color: #00ff88;
+            margin-top: 4px;
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+
+        .proc-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .proc-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            color: #444;
+        }
+
+        .proc-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #333;
+            flex-shrink: 0;
+        }
+
+        .proc-dot.run {
+            background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+
+        .proc-dot.idle {
+            background: #ffcc44;
+        }
+
+        .proc-dot.wait {
+            background: #333;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.4
+            }
+        }
+
+        /* ORB */
+        .orb-row {
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0 14px;
+            background: #0a0a0a;
+            border-top: 1px solid #111;
+            gap: 16px;
+        }
+
+        .orb-outer {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid #00ff8833;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .orb-outer:hover {
+            border-color: #00ff8866;
+        }
+
+        .orb-outer.listening {
+            border-color: #00ff88;
+            animation: orbPulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes orbPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 0 10px rgba(0, 255, 136, 0);
+            }
+        }
+
+        .orb-inner {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #00ff88;
+            opacity: 0.7;
+            transition: all 0.2s;
+        }
+
+        .orb-outer.listening .orb-inner {
+            opacity: 1;
+            width: 18px;
+            height: 18px;
+        }
+
+        .orb-status {
+            font-size: 10px;
+            color: #333;
+            letter-spacing: 0.1em;
+        }
+
+        .orb-status.active {
+            color: #00ff88;
+        }
+
+        @media (max-width: 700px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .panel-left,
+            .panel-right {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root">
+        <div class="scanline"></div>
+        <div class="layout">
+            <!-- LEFT PANEL -->
+            <div class="panel-left">
+                <div class="panel-label">brain modules</div>
+                <button class="brain-btn active green" onclick="setMode(0)">
+                    <div class="dot"></div> assistant
+                </button>
+                <button class="brain-btn blue" onclick="setMode(1)">
+                    <div class="dot"></div> dev mode
+                </button>
+                <button class="brain-btn red" onclick="setMode(2)">
+                    <div class="dot"></div> cyber mode
+                </button>
+                <button class="brain-btn amber" onclick="setMode(3)">
+                    <div class="dot"></div> focus mode
+                </button>
+                <hr class="divider-h">
+                <div class="panel-label">quick ops</div>
+                <button class="brain-btn" onclick="runQuick('scan system')">
+                    <div class="dot"></div> scan system
+                </button>
+                <button class="brain-btn" onclick="runQuick('clear logs')">
+                    <div class="dot"></div> clear logs
+                </button>
+                <button class="brain-btn" onclick="runQuick('train mode on')">
+                    <div class="dot"></div> train mode
+                </button>
+            </div>
+
+            <!-- CENTER -->
+            <div class="center">
+                <div class="topbar">
+                    <div class="topbar-left">
+                        <div class="topbar-dot" style="background:#ff5555"></div>
+                        <div class="topbar-dot" style="background:#ffcc44"></div>
+                        <div class="topbar-dot" style="background:#00ff88"></div>
+                        <span style="font-size:11px;color:#333;margin-left:6px;letter-spacing:0.1em">cmd_console
+                            v2.4</span>
+                    </div>
+                    <span class="status-badge live" id="mode-badge">ASSISTANT</span>
+                </div>
+
+                <div class="log-area" id="log-area">
+                    <div class="log-line sys">── system initializing ──</div>
+                    <div class="log-line info">[OK] core modules loaded</div>
+                    <div class="log-line info">[OK] neural interface active</div>
+                    <div class="log-line sys">[ ] awaiting command input</div>
+                </div>
+
+                <div class="prompt-area">
+                    <span class="prompt-caret">&gt;</span>
+                    <input class="prompt-input" id="cmd-input" placeholder="what do you want?" autocomplete="off"
+                        spellcheck="false">
+                </div>
+
+                <div class="suggestions" id="suggestions">
+                    <span class="sug-chip" onclick="fillCmd('analyze code')">analyze code</span>
+                    <span class="sug-chip" onclick="fillCmd('search exploitdb')">search exploitdb</span>
+                    <span class="sug-chip" onclick="fillCmd('optimize workflow')">optimize workflow</span>
+                    <span class="sug-chip" onclick="fillCmd('summarize this')">summarize this</span>
+                    <span class="sug-chip" onclick="fillCmd('open chrome')">open chrome</span>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL -->
+            <div class="panel-right">
+                <div class="panel-label">live state</div>
+                <div class="stat-block">
+                    <div class="stat-label">current task</div>
+                    <div class="stat-value highlight" id="current-task">idle</div>
+                </div>
+                <div class="stat-block">
+                    <div class="stat-label">last command</div>
+                    <div class="stat-value" id="last-cmd">—</div>
+                </div>
+                <hr class="divider-h">
+                <div class="stat-label" style="letter-spacing:.16em;font-size:9px">ai confidence</div>
+                <div class="confidence-bar-wrap">
+                    <div class="confidence-bar-bg">
+                        <div class="confidence-bar-fill" id="conf-bar" style="width:78%"></div>
+                    </div>
+                    <div class="conf-label" id="conf-val">78%</div>
+                </div>
+                <hr class="divider-h">
+                <div class="stat-label" style="letter-spacing:.16em;font-size:9px">processes</div>
+                <div class="proc-list">
+                    <div class="proc-row">
+                        <div class="proc-dot run"></div>neural.core
+                    </div>
+                    <div class="proc-row">
+                        <div class="proc-dot run"></div>input.parser
+                    </div>
+                    <div class="proc-row">
+                        <div class="proc-dot idle"></div>voice.module
+                    </div>
+                    <div class="proc-row">
+                        <div class="proc-dot wait"></div>exploit.scan
+                    </div>
+                    <div class="proc-row">
+                        <div class="proc-dot wait"></div>code.analyzer
+                    </div>
+                </div>
+                <hr class="divider-h">
+                <div class="stat-label" style="letter-spacing:.16em;font-size:9px">session</div>
+                <div class="stat-block">
+                    <div class="stat-value" id="cmd-count">cmds: 0</div>
+                    <div class="stat-value" id="session-time">uptime: 0s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ORB ROW -->
+        <div class="orb-row">
+            <span class="orb-status" id="orb-status">ready</span>
+            <div class="orb-outer" id="orb" onclick="toggleOrb()">
+                <div class="orb-inner"></div>
+            </div>
+            <span class="orb-status" id="orb-status2">click to speak</span>
+        </div>
+    </div>
+
+    <script>
+        // ─── Config ────────────────────────────────────────────────────────────────
+        const API = 'http://localhost:8000/api';
+
+        const modeKeys = ['assistant', 'dev mode', 'cyber mode', 'focus mode'];
+        const modeColors = ['green', 'blue', 'red', 'amber'];
+        const modeLabels = ['ASSISTANT', 'DEV MODE', 'CYBER MODE', 'FOCUS MODE'];
+
+        let currentMode = 0;
+        let listening = false;
+        let recognition = null;
+
+        // ─── DOM refs ───────────────────────────────────────────────────────────────
+        const logArea      = document.getElementById('log-area');
+        const input        = document.getElementById('cmd-input');
+        const badge        = document.getElementById('mode-badge');
+        const confBar      = document.getElementById('conf-bar');
+        const confVal      = document.getElementById('conf-val');
+        const orbEl        = document.getElementById('orb');
+        const orbStatus    = document.getElementById('orb-status');
+        const orbStatus2   = document.getElementById('orb-status2');
+        const sugEl        = document.getElementById('suggestions');
+        const lastCmdEl    = document.getElementById('last-cmd');
+        const currentTask  = document.getElementById('current-task');
+        const cmdCountEl   = document.getElementById('cmd-count');
+        const sessionTimeEl= document.getElementById('session-time');
+
+        // ─── Logging ────────────────────────────────────────────────────────────────
+        function addLog(text, type = 'out') {
+            const d = document.createElement('div');
+            d.className = 'log-line ' + type;
+            d.textContent = text;
+            logArea.appendChild(d);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function renderLines(lines, baseDelay = 150) {
+            let delay = baseDelay;
+            (lines || []).forEach(({ type, text }) => {
+                setTimeout(() => addLog(text, type || 'out'), delay);
+                delay += 160;
+            });
+            return delay;
+        }
+
+        // ─── Mode switch ────────────────────────────────────────────────────────────
+        async function setMode(idx) {
+            currentMode = idx;
+            document.querySelectorAll('.brain-btn').forEach((b, i) => {
+                b.className = 'brain-btn';
+                if (i === idx) b.classList.add('active', modeColors[idx]);
+            });
+            badge.textContent  = modeLabels[idx];
+            badge.className    = 'status-badge live';
+            currentTask.textContent = modeKeys[idx];
+
+            // Fetch log lines from backend
+            try {
+                const r = await fetch(`${API}/mode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: modeKeys[idx] }),
+                });
+                const data = await r.json();
+                renderLines(data.lines);
+            } catch {
+                addLog('[warn] backend offline — running in local mode', 'warn');
+            }
+
+            // Fetch suggestion chips for this mode
+            try {
+                const r = await fetch(`${API}/suggestions?mode=${encodeURIComponent(modeKeys[idx])}`);
+                const data = await r.json();
+                sugEl.innerHTML = (data.chips || [])
+                    .map(s => `<span class="sug-chip" onclick="fillCmd('${s}')">${s}</span>`)
+                    .join('');
+            } catch { /* keep existing chips */ }
+        }
+
+        // ─── Quick ops (left panel buttons) ─────────────────────────────────────────
+        async function runQuick(op) {
+            addLog(`> ${op}`, 'cmd');
+            lastCmdEl.textContent  = op;
+            currentTask.textContent = op;
+            try {
+                const r = await fetch(`${API}/quickops`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ op }),
+                });
+                const data = await r.json();
+                if (data.resetLogs) logArea.innerHTML = '';
+                const delay = renderLines(data.lines);
+                setTimeout(() => { currentTask.textContent = 'idle'; }, delay + 400);
+            } catch {
+                addLog('[err] backend unreachable', 'err');
+                currentTask.textContent = 'idle';
+            }
+        }
+
+        // ─── Command handler (center prompt) ────────────────────────────────────────
+        async function handleCommand() {
+  const val = input.value.trim();
+  if (!val) return;
+
+  cmdCount++;
+  cmdCountEl.textContent = `cmds: ${cmdCount}`;
+
+  addLog(`> ${val}`, 'cmd');
+  lastCmd.textContent = val;
+  currentTask.textContent = val;
+
+  input.value = '';
+
+  try {
+    const res = await fetch("http://127.0.0.1:3656/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: val,
+        mode: getModeName()
+      })
+    });
+
+    const data = await res.json();
+
+    data.lines.forEach(line => {
+      addLog(line.text, line.type);
+    });
+
+  } catch (err) {
+    addLog("[ERR] backend not reachable", "err");
+  }
+
+  setTimeout(() => {
+    currentTask.textContent = 'idle';
+  }, 800);
+}
+
+        // ─── Voice orb + Web Speech API ─────────────────────────────────────────────
+        function toggleOrb() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                addLog('[ERR] Web Speech API not supported in this browser', 'err');
+                return;
+            }
+
+            if (listening) {
+                recognition && recognition.stop();
+                return;
+            }
+
+            recognition = new SpeechRec();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            listening = true;
+            orbEl.classList.add('listening');
+            orbStatus.textContent   = 'listening';
+            orbStatus.className     = 'orb-status active';
+            orbStatus2.textContent  = 'speak now...';
+            addLog('[mic] voice input active', 'warn');
+
+            recognition.onresult = async (event) => {
+                const transcript = event.results[0][0].transcript;
+                stopListening();
+                addLog(`[mic] heard: "${transcript}"`, 'info');
+                input.value = transcript;
+
+                // Send to /api/voice (same as chat but labelled)
+                try {
+                    const r = await fetch(`${API}/voice`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ transcript, mode: modeKeys[currentMode] }),
+                    });
+                    const data = await r.json();
+                    addLog(`> ${transcript}`, 'cmd');
+                    lastCmdEl.textContent   = transcript;
+                    currentTask.textContent = 'processing...';
+                    input.value = '';
+                    const delay = renderLines(data.lines);
+                    setTimeout(() => { currentTask.textContent = 'idle'; }, delay + 400);
+                } catch {
+                    addLog('[ERR] voice backend unreachable', 'err');
+                }
+            };
+
+            recognition.onerror  = () => stopListening();
+            recognition.onend    = () => stopListening();
+            recognition.start();
+        }
+
+        function stopListening() {
+            listening = false;
+            orbEl.classList.remove('listening');
+            orbStatus.textContent  = 'ready';
+            orbStatus.className    = 'orb-status';
+            orbStatus2.textContent = 'click to speak';
+        }
+
+        // ─── SSE state stream → right panel ─────────────────────────────────────────
+        function connectStateStream() {
+            const evtSource = new EventSource(`${API}/state`);
+
+            evtSource.onmessage = (e) => {
+                try {
+                    const s = JSON.parse(e.data);
+
+                    // Command count & uptime (from server's session tracking)
+                    cmdCountEl.textContent = `cmds: ${s.cmdCount}`;
+                    const up = s.uptimeSec;
+                    sessionTimeEl.textContent = up < 60
+                        ? `uptime: ${up}s`
+                        : `uptime: ${Math.floor(up / 60)}m ${up % 60}s`;
+
+                    // Confidence bar
+                    const v = s.confidence;
+                    confBar.style.width = `${v}%`;
+                    confVal.textContent = `${v}%`;
+                    const color = v > 75 ? '#00ff88' : v > 55 ? '#ffcc44' : '#ff5555';
+                    confBar.style.background = color;
+                    confVal.style.color = color;
+
+                    // Process list
+                    const procList = document.querySelector('.proc-list');
+                    if (procList && s.processes) {
+                        procList.innerHTML = s.processes.map(p =>
+                            `<div class="proc-row">
+                                <div class="proc-dot ${p.status}"></div>${p.name}
+                             </div>`
+                        ).join('');
+                    }
+                } catch { /* ignore malformed SSE */ }
+            };
+
+            evtSource.onerror = () => {
+                // Silently retry — EventSource auto-reconnects
+            };
+        }
+
+        // ─── Init ────────────────────────────────────────────────────────────────────
+        (async () => {
+            // Check backend health
+            try {
+                const r = await fetch(`${API}/health`);
+                if (r.ok) {
+                    addLog('[OK] backend connected at localhost:8000', 'info');
+                    connectStateStream();
+                }
+            } catch {
+                addLog('[warn] backend offline — start uvicorn to enable AI', 'warn');
+                addLog('   cd backend && uvicorn main:app --reload', 'out');
+                // Fallback local session timer
+                setInterval(() => {
+                    const s = parseInt(sessionTimeEl.textContent.match(/\d+/)[0] || 0) + 1;
+                    sessionTimeEl.textContent = s < 60 ? `uptime: ${s}s` : `uptime: ${Math.floor(s/60)}m ${s%60}s`;
+                }, 1000);
+            }
+
+            // Load initial suggestions
+            await setMode(0);
+            setTimeout(() => addLog('[  ] type a command or click a suggestion', 'sys'), 600);
+        })();
+    </script>
+</body>
+
+</html>
